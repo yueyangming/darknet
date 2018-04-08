@@ -23,12 +23,40 @@ double get_wall_time()
 }
 */
 
+// double what_time_is_it_now()
+// {
+//     struct timespec now;
+//     clock_gettime(CLOCK_REALTIME, &now);
+//     return now.tv_sec + now.tv_nsec*1e-9;
+// }
+
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
+
 double what_time_is_it_now()
 {
     struct timespec now;
-    clock_gettime(CLOCK_REALTIME, &now);
+
+    //https://gist.github.com/jbenet/1087739
+    #ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+      clock_serv_t cclock;
+      mach_timespec_t mts;
+      host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+      clock_get_time(cclock, &mts);
+      mach_port_deallocate(mach_task_self(), cclock);
+      now.tv_sec = mts.tv_sec;
+      now.tv_nsec = mts.tv_nsec;
+    #else
+      clock_gettime(CLOCK_REALTIME, now);
+    #endif
+
+
     return now.tv_sec + now.tv_nsec*1e-9;
 }
+
 
 int *read_intlist(char *gpu_list, int *ngpus, int d)
 {
@@ -259,9 +287,9 @@ unsigned char *read_file(char *filename)
     FILE *fp = fopen(filename, "rb");
     size_t size;
 
-    fseek(fp, 0, SEEK_END); 
+    fseek(fp, 0, SEEK_END);
     size = ftell(fp);
-    fseek(fp, 0, SEEK_SET); 
+    fseek(fp, 0, SEEK_SET);
 
     unsigned char *text = calloc(size+1, sizeof(char));
     fread(text, 1, size, fp);
@@ -573,7 +601,7 @@ float mag_array(float *a, int n)
     int i;
     float sum = 0;
     for(i = 0; i < n; ++i){
-        sum += a[i]*a[i];   
+        sum += a[i]*a[i];
     }
     return sqrt(sum);
 }
@@ -682,7 +710,7 @@ float rand_normal()
 
 size_t rand_size_t()
 {
-    return  ((size_t)(rand()&0xff) << 56) | 
+    return  ((size_t)(rand()&0xff) << 56) |
         ((size_t)(rand()&0xff) << 48) |
         ((size_t)(rand()&0xff) << 40) |
         ((size_t)(rand()&0xff) << 32) |
@@ -720,4 +748,3 @@ float **one_hot_encode(float *a, int n, int k)
     }
     return t;
 }
-
